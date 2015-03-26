@@ -13,7 +13,7 @@ module ShopifyAPI
       def initialize(method, resource, response)
         @@responses += FakeWeb.register_uri(
           method, /#{SHOPIFY_MOCK_SHOP_BASE_URL}#{resource}/,
-          :body => response
+          response.is_a?(String) ? { :body => response } : response
         )
       end
       
