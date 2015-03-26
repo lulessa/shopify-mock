@@ -93,13 +93,35 @@ module ShopifyAPI
           # /products/:id.:format
           #TODO : add xml responses as well
           fixture_data = parse_fixture_data(fixture)
+
+          # array of Shopify API endpoints that do not accept PUT request
+          # as symbolized singular fixture names
+          put_request_not_accepted = [ :policy,
+                                       :recurring_application_charge,
+                                       :application_charge,
+                                       :checkout,
+                                       :shop,
+                                       :transaction,
+                                       :location,
+                                       :user,
+                                       :event,
+                                       :refund ]
+
           if fixture.ext == :json
             objects = fixture_data[fixture.name.to_s]
             if objects && objects.is_a?(Array)
               objects.each do |obj|
                 if obj.has_key? 'id'
-                  result = { "#{fixture.name.to_s.singularize}" => obj }
-                  registered_responses << ShopifyAPI::Mock::Response.new(:get, "#{fixture.name.to_s}/#{obj['id']}.#{fixture.ext.to_s}", result.to_json)
+                	fixture_name_singular = "#{fixture.name.to_s.singularize}"
+                	request_url = "#{fixture.name.to_s}/#{obj['id']}.#{fixture.ext.to_s}"
+                  result = { fixture_name_singular => obj }
+                  registered_responses << ShopifyAPI::Mock::Response.new(:get, request_url, result.to_json)
+                  # register the put response - same body as GET request
+                  # NOTE: FakeWeb ignores request bodies. We cannot set PUT/POST
+                  # request response body according to PUT request data.
+                  unless put_request_not_accepted.include?(fixture_name_singular)
+                    registered_responses << ShopifyAPI::Mock::Response.new(:put, request_url, result.to_json)
+                  end
                 end
               end
             end
