@@ -116,6 +116,8 @@ module ShopifyAPI
                 	request_url = "#{fixture.name.to_s}/#{obj['id']}.#{fixture.ext.to_s}"
                   result = { fixture_name_singular => obj }
                   registered_responses << ShopifyAPI::Mock::Response.new(:get, request_url, result.to_json)
+                  # HEAD responses - used by ActiveResource exists? method
+                  registered_responses << ShopifyAPI::Mock::Response.new(:head, request_url, { :body => "", :status => [200, "OK"] })
                   # register the put response - same body as GET request
                   # NOTE: FakeWeb ignores request bodies. We cannot set PUT/POST
                   # request response body according to PUT request data.
