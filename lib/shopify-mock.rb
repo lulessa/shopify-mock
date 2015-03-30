@@ -77,22 +77,6 @@ module ShopifyAPI
         ShopifyAPI::Mock::Response.clear
         
         registered_responses = []
-        ShopifyAPI::Mock::Fixture.all.each do |fixture|
-          # register the count fixture for this resource, if it exists
-          count_fixture = ShopifyAPI::Mock::Fixture.find(:count, fixture.ext.to_sym)
-          registered_responses << ShopifyAPI::Mock::Response.new(
-            :get, "#{fixture.name.to_s}/count.#{fixture.ext}",
-            count_fixture.data
-          ) unless count_fixture.nil?
-          # register the resource fixture
-          registered_responses << ShopifyAPI::Mock::Response.new(
-            :get, "#{fixture.name.to_s}.#{fixture.ext.to_s}",
-            fixture.data
-          )
-          # register the individual get by id
-          # /products/:id.:format
-          #TODO : add xml responses as well
-          fixture_data = parse_fixture_data(fixture)
 
           # array of Shopify API endpoints that do not accept PUT request
           # as symbolized singular fixture names
@@ -107,22 +91,50 @@ module ShopifyAPI
                                        :event,
                                        :refund ]
 
+        ShopifyAPI::Mock::Fixture.all.each do |fixture|
+					fixture_name_singular = "#{fixture.name.to_s.singularize}"
+
+          # register the count fixture for this resource, if it exists
+          count_fixture = ShopifyAPI::Mock::Fixture.find(:count, fixture.ext.to_sym)
+          registered_responses << ShopifyAPI::Mock::Response.new(
+            :get, "#{fixture.name.to_s}/count.#{fixture.ext}",
+            count_fixture.data
+          ) unless count_fixture.nil?
+
+          # register the resource fixture
+          resource_url = "#{fixture.name.to_s}.#{fixture.ext.to_s}"
+          registered_responses << ShopifyAPI::Mock::Response.new(
+            :get, resource_url, fixture.data
+          )
+
+          # register the individual get by id
+          # /products/:id.:format
+          #TODO : add xml responses as well
+          fixture_data = parse_fixture_data(fixture)
+
+          post_response = nil
+
           if fixture.ext == :json
             objects = fixture_data[fixture.name.to_s]
             if objects && objects.is_a?(Array)
               objects.each do |obj|
                 if obj.has_key? 'id'
-                	fixture_name_singular = "#{fixture.name.to_s.singularize}"
                 	request_url = "#{fixture.name.to_s}/#{obj['id']}.#{fixture.ext.to_s}"
                   result = { fixture_name_singular => obj }
                   registered_responses << ShopifyAPI::Mock::Response.new(:get, request_url, result.to_json)
                   # HEAD responses - used by ActiveResource exists? method
                   registered_responses << ShopifyAPI::Mock::Response.new(:head, request_url, { :body => "", :status => [200, "OK"] })
                   # register the put response - same body as GET request
-                  # NOTE: FakeWeb ignores request bodies. We cannot set PUT/POST
-                  # request response body according to PUT request data.
+                  # NOTE: FakeWeb ignores request bodies. We cannot set
+                  # PUT/POST response body according to PUT request data.
                   unless put_request_not_accepted.include?(fixture_name_singular)
                     registered_responses << ShopifyAPI::Mock::Response.new(:put, request_url, result.to_json)
+                  end
+
+                  # register first object as POST response for this fixture
+                  if post_response.nil?
+                    post_reponse = ShopifyAPI::Mock::Response.new(:post, resource_url, result.to_json)
+                    registered_responses << post_response
                   end
                 end
               end
